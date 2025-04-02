@@ -54,15 +54,15 @@ class data_cleaning(pd.DataFrame):
         return self
     
 class feature_engineering(data_cleaning):
-    
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-        
-    def index_values(self,column):
-        unique_values = self[column].unique()
-        dicionario = {value: key for key, value in enumerate(unique_values)}
-        self[f"id_{column}"] = self[column].map(dicionario)
-        return self
+     
+     def __init__(self,*args,**kwargs):
+         super().__init__(*args,**kwargs)
+         
+     def index_values(self,column):
+         unique_values = self[column].unique()
+         dicionario = {value: key for key, value in enumerate(unique_values)}
+         self[f"id_{column}"] = self[column].map(dicionario)
+         return self
     
 # %%
 new_df = data_cleaning(df)
@@ -99,24 +99,9 @@ new_df.head()
 # %%
 new_df.isnull().sum()
 # %%
-new_df = feature_engineering(new_df)
-new_df = new_df.index_values("Servico")
-new_df.info()
-# %%
-print(new_df.count())
+print(new_df.shape)
 new_df = new_df.assign(Bebidas=new_df["Bebidas"].str.split(",")).explode("Bebidas")
-print(new_df.count())
-#%% 
-new_df['month'] = new_df['data'].dt.to_period('M')
-grouped_df  = new_df.groupby("data").agg(Pedidos = ("ID","nunique"),
-                            Valor_total = ("ValordoServico","sum"),
-                            clientes = ("Cliente","nunique")).reset_index()
-import matplotlib.pyplot as plt 
-plt.figure(figsize=(12,10))
-plt.plot(grouped_df["data"].astype(str), grouped_df["clientes"], label = "clientes")
-plt.plot(grouped_df["data"].astype(str), grouped_df["Pedidos"], label = "pedidos")
-plt.xticks(rotation=90)
-plt.legend()
+print(new_df.shape)
 # %%
 new_df["ID"].nunique()/new_df["Cliente"].nunique()
 # %%
@@ -127,7 +112,7 @@ dim_servico = produtos[["SERVIÇO","VALOR DO SERVIÇO"]]
 dim_produto = produtos[["PRODUTO","VALOR DE VENDA","VALOR DE COMPRA","LUCRO"]]
 dim_doce = produtos[["DOCE","VALOR DE VENDA.1","VALOR DE COMPRA.1","LUCRO.1"]]
 dim_salgado = produtos[["SALGADO","VALOR DE VENDA.2","VALOR DE COMPRA.2","LUCRO.2"]]
-dim_bebida = produtos[["SALGADO","VALOR DE VENDA.3","VALOR DE COMPRA.3","LUCRO.3"]]
+dim_bebida = produtos[["BEBIDA","VALOR DE VENDA.3","VALOR DE COMPRA.3","LUCRO.3"]]
 dim_funcionario = produtos[["FUNCIONARIO","PORCENTAGEM"]]
 dim_taxa = produtos[["FUNCAO","TAXA"]]
 
@@ -174,44 +159,6 @@ dim_produto = dim_produto.normalize_dollar("compra")
 dim_doce = dim_doce.normalize_dollar("compra")
 dim_salgado = dim_salgado.normalize_dollar("compra")
 dim_bebida = dim_bebida.normalize_dollar("compra")
-#%%
-new_df.info()
-# %%
-# %%
-##CREATE TABLE your_table_name (
-##    data DATETIME,
-##    id VARCHAR(255),
-##    servico VARCHAR(255), 
-##    vl_servico VARCHAR(255), 
-##    cliente_novo BOOLEAN, 
-##    fidelizado BOOLEAN, 
-##    produto VARCHAR(255), 
-##    qtd_produto INT, 
-##    vl_total_produto FLOAT, 
-##    doce VARCHAR(255), 
-##    qtd_doce INT, 
-##    vl_total_doces FLOAT,
-##    salgado VARCHAR(255), 
-##    qtd_salgado INT, 
-##    vl_total_salgado FLOAT,
-##    salgado VARCHAR(255), 
-##    qtd_salgado INT, 
-##    vl_total_salgado FLOAT,
-##    bebida VARCHAR(255), 
-##    qtd_bebida INT, 
-##    vl_total_bebida FLOAT,
-##    forma_de_pagamento VARCHAR(255),
-##    tx_maquina FLOAT,
-##    total_sp FLOAT,  -- Total(S+P)
-##    total_spt FLOAT,  -- Total(S+P)*T
-##    total_splt FLOAT,  -- Total[(S+P)-LP]*T
-##    total_slp_col FLOAT,  -- TotalS+LP-Col
-##    total_colaborador FLOAT,
-##    colaborador_50 FLOAT
-##);
-
-#%%
-new_df.columns
 # %%
 tabela_fato = new_df[['data', 'ID', 'Colaborador', 'Cliente', 'Servico', 'ValordoServico',
        'ClienteNovo', 'Local', 'Produto', 'QuantidadeProduto',
@@ -258,6 +205,44 @@ tabela_fato = tabela_fato.rename(columns={
 })
 #%%
 dim_produto.head()
+#%%
+def to_string(dataframe,coluna):
+    dataframe[coluna] = dataframe[coluna].astype(str)
+    return dataframe[coluna].apply(lambda x: type(x)).value_counts()
+#%%
+to_string(dim_bebida,"produto")
+#%%
+to_string(dim_produto,"produto")
+#%%
+dim_produto = dim_produto[dim_produto["produto"] != "VAZIO"]
+#%%
+dataframes = [dim_bebida, dim_doce, dim_salgado]
+for df in dataframes:
+    df.dropna(subset=["vl_venda"],inplace=True)
+#%%
+dim_produto_2 = pd.concat([dim_bebida, dim_doce, dim_salgado])
+#%%
+dim_produto_2.head(100)
+#%%
+dim_p_b = dim_produto.merge(dim_produto_2, on="produto", how="left", suffixes=("", "n_"))
+dim_p_b.drop(columns=["vl_vendan_","compran_","lucron_"],inplace=True)
+#%%
+dim_p_b.dropna(subset="vl_venda",inplace=True)
+#%%
+dim_p_b["tipo"] = dim_p_b["tipo"].apply(lambda x: "barbearia" if pd.isna(x) else x)
+dim_p_b.head()
+#%%
+dim_p_b.drop_duplicates(subset=["produto"],inplace=True)
+dim_p_b = feature_engineering(dim_p_b)
+dim_p_b = dim_p_b.index_values("produto")
+dim_p_b.head()
+#%%
+produto_map = dim_p_b[["produto","id_produto"]].to_dict()
+#%%
+tabela_fato["produto"] = tabela_fato["produto"].map(produto_map)
+tabela_fato["doce"] = tabela_fato["doce"].map(produto_map)
+tabela_fato["salgado"] = tabela_fato["salgado"].map(produto_map)
+tabela_fato["bebida"] = tabela_fato["bebida"].map(produto_map)
 # %%
 tabela_fato.head(10)
 # %%
