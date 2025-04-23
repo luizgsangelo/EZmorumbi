@@ -4,11 +4,15 @@
     "dictionaryDefinitions": [],
     "dictionaries": [],
     "words": [
+        "auxdesconto",
+        "auxvalor",
         "dataframes",
         "FUNCAO",
         "funcionario",
-        "servico"
+        "servico",
+        "totalcolaborador"
     ],
     "ignoreWords": [],
-    "import": []
+    "import": [],
+    "language": "en,pt,pt_BR"
 }
